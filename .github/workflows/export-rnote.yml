@@ -1,0 +1,69 @@
+name: Auto-Export Rnote to PDF
+
+on:
+  push:
+    paths:
+      - '**/*.rnote'
+
+jobs:
+  convert-rnote:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install rnote-cli
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libadwaita-1-dev shared-mime-info
+          
+          cargo install --git https://github.com/flxzt/rnote rnote-cli
+
+      - name: Find and Convert modified .rnote files
+        run: |
+          FILES=$(git diff --name-only HEAD^ HEAD | grep '\.rnote$' || true)
+          
+          if [ -z "$FILES" ]; then
+            echo "No .rnote files changed."
+            exit 0
+          fi
+
+          echo "Files to convert:"
+          echo "$FILES"
+
+          for file in $FILES; do
+            pdf_name="${file%.rnote}.pdf"
+            echo "Converting $file to $pdf_name..."
+            rnote-cli convert "$file" "$pdf_name"
+          done
+
+      - name: Commit and Push PDFs
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          git add **/*.pdf
+          
+          if git diff --staged --quiet; then
+            echo "No PDF updates to commit."
+          else
+            git commit -m "chore: Auto-generate PDFs from Rnote [skip ci]"
+            git push
+          fi
