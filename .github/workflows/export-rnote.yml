@@ -15,55 +15,51 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 2
 
-      - name: Setup Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Cargo Dependencies
+      - name: Cache rnote-cli binary
+        id: cache-rnote-cli
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          path: /home/runner/.cargo/bin/rnote-cli
+          key: ${{ runner.os }}-rnote-cli-v2
 
-      - name: Install rnote-cli
+      - name: Install system dependencies (if not cached)
+        if: steps.cache-rnote-cli.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-4-dev libadwaita-1-dev shared-mime-info
-          
-          cargo install --git https://github.com/flxzt/rnote rnote-cli
 
-      - name: Find and Convert modified .rnote files
+      - name: Setup Rust Toolchain (if not cached)
+        if: steps.cache-rnote-cli.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install rnote-cli (if not cached)
+        if: steps.cache-rnote-cli.outputs.cache-hit != 'true'
+        run: cargo install --git https://github.com/flxzt/rnote rnote-cli
+
+      - name: Get changed Rnote files
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+        with:
+          files: '**/*.rnote'
+
+      - name: Convert modified .rnote files
+        if: steps.changed-files.outputs.any_changed == 'true'
         run: |
-          FILES=$(git diff --name-only HEAD^ HEAD | grep '\.rnote$' || true)
-          
-          if [ -z "$FILES" ]; then
-            echo "No .rnote files changed."
-            exit 0
-          fi
-
-          echo "Files to convert:"
-          echo "$FILES"
-
-          for file in $FILES; do
+          sudo apt-get update && sudo apt-get install -y shared-mime-info
+          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
             pdf_name="${file%.rnote}.pdf"
-            echo "Converting $file to $pdf_name..."
-            rnote-cli convert "$file" "$pdf_name"
+            /home/runner/.cargo/bin/rnote-cli convert "$file" "$pdf_name"
           done
 
       - name: Commit and Push PDFs
+        if: steps.changed-files.outputs.any_changed == 'true'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
-          git add **/*.pdf
-          
-          if git diff --staged --quiet; then
-            echo "No PDF updates to commit."
-          else
+          git add **/*.pdf || true
+          if ! git diff --staged --quiet; then
             git commit -m "chore: Auto-generate PDFs from Rnote [skip ci]"
             git push
           fi
