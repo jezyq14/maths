@@ -8,6 +8,8 @@ Zadania robię w [Rnote](https://rnote.flxzt.net/).
 
 ### Pazdro zbiór maturalny matematyka rozszerzona 2002-2024
 
+- **Dział 6. Ciągi:** 6.01
+
 - **Dział 15. Granice. Pochodna:** 15.01 - 15.20
 
 - **Dział 16. Optymalizacja:** 16.01 - 16.41
