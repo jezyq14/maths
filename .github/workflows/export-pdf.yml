@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - '**.rnote'
-  workflow_dispatch: 
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repozytorium
         uses: actions/checkout@v4
 
       - name: Cache Flatpak
@@ -29,14 +29,23 @@ jobs:
           sudo apt-get install -y flatpak xvfb
           flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
           flatpak install --user -y flathub com.github.flxzt.rnote
+          flatpak override --user --filesystem=host com.github.flxzt.rnote
 
       - name: Export notes to PDF
         run: |
-          find . -type f -name "*.rnote" -exec xvfb-run -a flatpak run --command=rnote-cli com.github.flxzt.rnote \
-            export doc \
-            --output-format pdf \
-            --on-conflict overwrite \
-            {} +
+          find . -name "*.rnote" -print0 | while IFS= read -r -d '' file; do
+            if [ -d "$file" ]; then
+              echo "OSTRZEŻENIE: Pomijam '$file', ponieważ jest to folder, a nie plik!"
+              continue
+            fi
+
+            echo "Konwertuję: $file"
+            xvfb-run -a flatpak run --command=rnote-cli com.github.flxzt.rnote \
+              export doc \
+              --output-format pdf \
+              --on-conflict overwrite \
+              "$file"
+          done
 
       - name: Commit and Push PDF files
         run: |
@@ -46,8 +55,8 @@ jobs:
           find . -type f -name "*.pdf" -exec git add "{}" +
 
           if git diff --staged --quiet; then
-            echo "No new or modified PDF."
+            echo "Brak nowych lub zmienionych plików PDF."
           else
-            git commit -m "Auto-export: PDF files of notes [skip ci]"
+            git commit -m "Auto-export: generated PDF files of notes [skip ci]"
             git push
           fi
