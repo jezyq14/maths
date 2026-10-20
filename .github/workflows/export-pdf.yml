@@ -1,0 +1,53 @@
+name: Export Rnote to PDF
+
+on:
+  push:
+    paths:
+      - '**.rnote'
+  workflow_dispatch: 
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Cache Flatpak
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/flatpak
+          key: flatpak-rnote-v1-${{ runner.os }}
+
+      - name: Install Flatpak, xvfb and Rnote
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak xvfb
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub com.github.flxzt.rnote
+
+      - name: Export notes to PDF
+        run: |
+          find . -type f -name "*.rnote" -exec xvfb-run -a flatpak run --command=rnote-cli com.github.flxzt.rnote \
+            export doc \
+            --output-format pdf \
+            --on-conflict overwrite \
+            {} +
+
+      - name: Commit and Push PDF files
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          find . -type f -name "*.pdf" -exec git add "{}" +
+
+          if git diff --staged --quiet; then
+            echo "No new or modified PDF."
+          else
+            git commit -m "Auto-export: PDF files of notes [skip ci]"
+            git push
+          fi
