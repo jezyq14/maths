@@ -10,7 +10,7 @@ Zadania robię w [Rnote](https://rnote.flxzt.net/).
 
 - **Dział 6. Ciągi:** 6.01 - 6.09
 
-- **Dział 15. Granice. Pochodna:** 15.01 - 15.20
+- **Dział 15. Granice. Pochodna:** 15.01 - 15.28
 
 - **Dział 16. Optymalizacja:** 16.01 - 16.41
 
