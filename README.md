@@ -19,3 +19,7 @@ Zadania robię w [Rnote](https://rnote.flxzt.net/).
 #### Podstawowe
 
 - Maj 2026
+
+#### Rozszerzone
+
+- Maj 2026 - 4, 5, 6, 8
